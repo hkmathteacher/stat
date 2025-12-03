@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>數據對統計量的影響展示</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -10,6 +10,8 @@
         body {
             font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
             background-color: #f3f4f6;
+            /* Prevent bounce effect on iOS */
+            overscroll-behavior-y: none; 
         }
         .stat-card {
             transition: all 0.3s ease;
@@ -18,195 +20,227 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        input:focus {
+        input:focus, textarea:focus {
             outline: none;
             border-color: #3b82f6;
-            ring: 2px;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
         }
-        canvas {
-            touch-action: none;
-        }
-        /* Toggle Switch Styles */
-        .toggle-checkbox:checked {
+        /* Optimized Switch for Touch */
+        .toggle-checkbox {
             right: 0;
-            border-color: #2563eb;
+            z-index: 10;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .toggle-label {
+            width: 3.5rem; /* Larger width */
+            height: 2rem;  /* Larger height */
+            background-color: #d1d5db;
+            border-radius: 9999px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .toggle-label:before {
+            content: "";
+            position: absolute;
+            top: 0.25rem;
+            left: 0.25rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.2s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         .toggle-checkbox:checked + .toggle-label {
             background-color: #2563eb;
         }
+        .toggle-checkbox:checked + .toggle-label:before {
+            transform: translateX(1.5rem);
+        }
+        
+        /* Better touch response for buttons */
+        button {
+            touch-action: manipulation;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-gray-800 min-h-screen">
 
-    <div class="container mx-auto px-4 py-8 max-w-5xl">
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
         
         <!-- Header -->
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-blue-800 mb-2">統計量互動實驗室</h1>
-            <p class="text-gray-600">修改數據，觀察對平均數、中位數、標準差等統計量的影響。</p>
+        <header class="mb-6 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">統計量互動實驗室</h1>
+            <p class="text-gray-600 text-sm md:text-base">修改數據，觀察對平均數、中位數、標準差等統計量的影響。</p>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- Left Column: Input and Controls -->
-            <div class="lg:col-span-1 space-y-6">
+            <!-- Left Column: Controls -->
+            <!-- Layout Note: On Tablet (md), split this column into grid-cols-2 to save vertical space -->
+            <div class="lg:col-span-4 xl:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6 content-start">
                 
                 <!-- Data Input -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">輸入數據 (以逗號分隔):</label>
-                    <textarea id="dataInput" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-lg" placeholder="例如: 10, 20, 30...">10, 12, 15, 15, 18, 20, 22</textarea>
-                    <div class="mt-2 text-xs text-gray-500 flex justify-between">
-                        <span id="countDisplay">數量 n = 7</span>
-                        <button onclick="resetData()" class="text-blue-600 hover:text-blue-800 underline">重置預設值</button>
+                <div class="bg-white p-5 rounded-xl shadow-md md:col-span-2 lg:col-span-1">
+                    <label class="block text-base font-bold text-gray-700 mb-2">輸入數據 (以逗號分隔):</label>
+                    <textarea id="dataInput" rows="3" class="w-full p-4 border border-gray-300 rounded-xl font-mono text-lg md:text-xl shadow-sm transition-colors" placeholder="例如: 10, 20, 30...">10, 12, 15, 15, 18, 20, 22</textarea>
+                    <div class="mt-3 text-sm text-gray-500 flex justify-between items-center">
+                        <span id="countDisplay" class="bg-gray-100 px-2 py-1 rounded">n = 7</span>
+                        <button onclick="resetData()" class="text-blue-600 font-medium px-3 py-1 hover:bg-blue-50 rounded-lg transition">
+                            ↺ 重置預設值
+                        </button>
                     </div>
                 </div>
 
                 <!-- Scenario Buttons -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">實驗場景</h3>
+                <div class="bg-white p-5 rounded-xl shadow-md flex flex-col justify-center">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">實驗場景</h3>
                     <div class="space-y-3">
-                        <button onclick="shiftData(5)" class="w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition flex items-center group">
-                            <span class="bg-blue-200 p-1 rounded mr-3 text-xs group-hover:bg-blue-300">+5</span>
+                        <button onclick="shiftData(5)" class="w-full text-left px-4 py-4 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-800 rounded-xl transition flex items-center group border border-blue-100 shadow-sm">
+                            <span class="bg-blue-200 p-2 rounded-lg mr-3 text-sm font-bold group-hover:bg-blue-300 shadow-sm">+5</span>
                             <div>
-                                <div class="font-semibold">數據平移 (+5)</div>
-                                <div class="text-xs text-blue-600 opacity-80">集中趨勢增加，離差(SD/IQR)不變</div>
+                                <div class="font-bold text-lg">數據平移</div>
+                                <div class="text-xs text-blue-600 opacity-80 mt-0.5">集中趨勢增加，離差不變</div>
                             </div>
                         </button>
 
-                        <button onclick="multiplyData(2)" class="w-full text-left px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition flex items-center group">
-                            <span class="bg-purple-200 p-1 rounded mr-3 text-xs group-hover:bg-purple-300">x2</span>
+                        <button onclick="multiplyData(2)" class="w-full text-left px-4 py-4 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-800 rounded-xl transition flex items-center group border border-purple-100 shadow-sm">
+                            <span class="bg-purple-200 p-2 rounded-lg mr-3 text-sm font-bold group-hover:bg-purple-300 shadow-sm">x2</span>
                             <div>
-                                <div class="font-semibold">數據倍增 (x2)</div>
-                                <div class="text-xs text-purple-600 opacity-80">所有數值變大，分佈變寬 (SD變大)</div>
+                                <div class="font-bold text-lg">數據倍增</div>
+                                <div class="text-xs text-purple-600 opacity-80 mt-0.5">分佈變寬 (SD變大)</div>
                             </div>
                         </button>
                     </div>
                 </div>
 
-                <!-- Legend for Dot Plot -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">圖例說明</h3>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex items-center">
-                            <div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                            <span>數據點 (Dot)</span>
+                <!-- Legend -->
+                <div class="bg-white p-5 rounded-xl shadow-md flex flex-col justify-center">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">圖例說明</h3>
+                    <div class="space-y-3 text-sm md:text-base">
+                        <div class="flex items-center p-1">
+                            <div class="w-4 h-4 rounded-full bg-blue-500 mr-3 shadow-sm"></div>
+                            <span class="text-gray-700">數據點 (Dot)</span>
                         </div>
-                        <div class="flex items-center">
-                            <div class="w-4 h-1 bg-emerald-500 mr-2"></div>
-                            <span>中位數 (Median)</span>
+                        <div class="flex items-center p-1">
+                            <div class="w-5 h-1.5 bg-emerald-500 mr-3 rounded-full"></div>
+                            <span class="text-gray-700">中位數 (Median)</span>
                         </div>
-                        <div class="flex items-center">
-                            <div class="w-4 h-1 bg-gray-400 mr-2"></div>
-                            <span>四分位數間距 (IQR)</span>
+                        <div class="flex items-center p-1">
+                            <div class="w-5 h-1.5 bg-gray-400 mr-3 rounded-full"></div>
+                            <span class="text-gray-700">四分位數間距 (IQR)</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Column: Visualization and Stats -->
-            <div class="lg:col-span-2 space-y-6">
+            <div class="lg:col-span-8 xl:col-span-9 space-y-6">
                 
-                <!-- Dot Plot Canvas Area (New) -->
-                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
+                <!-- Dot Plot Canvas Area -->
+                <div class="bg-white p-5 rounded-xl shadow-md border-l-4 border-blue-500">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-800">數線分析 (Dot Plot)</h3>
-                            <p class="text-xs text-gray-500">
+                            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                                數線分析
+                                <span class="ml-2 text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full">推薦</span>
+                            </h3>
+                            <p class="text-sm text-gray-500 mt-1">
                                 鎖定數線後進行平移，可觀察數據整體移動。
                             </p>
                         </div>
                         
-                        <!-- Toggle Switch -->
-                        <div class="flex items-center bg-gray-50 p-2 rounded-lg border border-gray-200">
-                            <span class="text-sm text-gray-600 mr-3 font-medium" id="lockLabel">自動縮放</span>
-                            <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" name="toggle" id="axisLockToggle" onchange="toggleAxisLock()" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 ease-in-out border-gray-300 left-0"/>
-                                <label for="axisLockToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        <!-- Toggle Switch (Larger for Touch) -->
+                        <div class="flex items-center bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-inner">
+                            <span class="text-sm md:text-base text-gray-700 mr-3 font-bold" id="lockLabel">自動縮放</span>
+                            <div class="relative flex items-center">
+                                <input type="checkbox" id="axisLockToggle" onchange="toggleAxisLock()" class="toggle-checkbox absolute w-full h-full appearance-none"/>
+                                <label for="axisLockToggle" class="toggle-label block"></label>
                             </div>
-                            <button onclick="resetAxis()" id="resetAxisBtn" class="hidden text-xs bg-white hover:bg-gray-100 text-blue-600 px-2 py-1 rounded border border-blue-200 shadow-sm ml-2">
-                                重置視圖
+                            <button onclick="resetAxis()" id="resetAxisBtn" class="hidden text-sm bg-white hover:bg-gray-100 active:bg-gray-200 text-blue-600 font-bold px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm ml-3 transition">
+                                重置
                             </button>
                         </div>
                     </div>
 
-                    <div class="relative w-full h-48">
+                    <div class="relative w-full h-56 md:h-64 bg-gray-50 rounded-lg border border-gray-100">
                         <canvas id="dotPlotCanvas" class="w-full h-full"></canvas>
                     </div>
                 </div>
 
-                <!-- Histogram Area -->
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">頻數分佈 (Histogram)</h3>
-                    <div class="relative h-48 w-full">
-                        <canvas id="myChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Stats Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <!-- Stats Grid (Responsive adjustment) -->
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
                     <!-- Mean -->
-                    <div class="stat-card bg-blue-600 text-white p-4 rounded-xl shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl font-black">μ</div>
-                        <h4 class="text-blue-100 text-sm font-medium">平均數 (Mean)</h4>
-                        <div id="valMean" class="text-3xl font-bold mt-1">-</div>
-                        <p class="text-xs text-blue-200 mt-2">易受極端值影響</p>
+                    <div class="stat-card bg-blue-600 text-white p-4 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-10 font-serif">μ</div>
+                        <h4 class="text-blue-100 text-xs font-bold uppercase tracking-wider">平均數</h4>
+                        <div id="valMean" class="text-2xl md:text-3xl font-bold mt-1 tracking-tight">-</div>
                     </div>
 
                     <!-- Median -->
-                    <div class="stat-card bg-emerald-500 text-white p-4 rounded-xl shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl font-black">M</div>
-                        <h4 class="text-emerald-100 text-sm font-medium">中位數 (Median)</h4>
-                        <div id="valMedian" class="text-3xl font-bold mt-1">-</div>
-                        <p class="text-xs text-emerald-100 mt-2">較穩健的中心指標</p>
+                    <div class="stat-card bg-emerald-500 text-white p-4 rounded-xl shadow-md relative overflow-hidden">
+                         <div class="absolute -bottom-2 -right-2 text-6xl opacity-10 font-serif">M</div>
+                        <h4 class="text-emerald-100 text-xs font-bold uppercase tracking-wider">中位數</h4>
+                        <div id="valMedian" class="text-2xl md:text-3xl font-bold mt-1 tracking-tight">-</div>
                     </div>
 
                     <!-- Mode -->
-                    <div class="stat-card bg-purple-500 text-white p-4 rounded-xl shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-10 text-4xl font-black">Mo</div>
-                        <h4 class="text-purple-100 text-sm font-medium">眾數 (Mode)</h4>
-                        <div id="valMode" class="text-2xl font-bold mt-1">-</div>
-                        <p class="text-xs text-purple-200 mt-2">出現最頻繁的數</p>
+                    <div class="stat-card bg-purple-500 text-white p-4 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="absolute -bottom-2 -right-2 text-6xl opacity-10 font-serif">Mo</div>
+                        <h4 class="text-purple-100 text-xs font-bold uppercase tracking-wider">眾數</h4>
+                        <div id="valMode" class="text-xl md:text-2xl font-bold mt-2 truncate">-</div>
                     </div>
 
                     <!-- Range -->
                     <div class="stat-card bg-white p-4 rounded-xl shadow border border-gray-200">
-                        <h4 class="text-gray-500 text-xs font-bold uppercase">分佈域 (Range)</h4>
-                        <div id="valRange" class="text-2xl font-bold text-gray-800 mt-1">-</div>
-                        <div class="text-xs text-gray-400 mt-1">最大值 - 最小值</div>
+                        <h4 class="text-gray-400 text-xs font-bold uppercase tracking-wider">分佈域</h4>
+                        <div id="valRange" class="text-2xl md:text-3xl font-bold text-gray-700 mt-1">-</div>
                     </div>
 
                     <!-- IQR -->
                     <div class="stat-card bg-white p-4 rounded-xl shadow border border-gray-200">
-                        <h4 class="text-gray-500 text-xs font-bold uppercase">四分位數間距 (IQR)</h4>
-                        <div id="valIQR" class="text-2xl font-bold text-gray-800 mt-1">-</div>
-                        <div class="text-xs text-gray-400 mt-1">Q3 - Q1 (中間50%數據)</div>
+                        <h4 class="text-gray-400 text-xs font-bold uppercase tracking-wider">IQR</h4>
+                        <div id="valIQR" class="text-2xl md:text-3xl font-bold text-gray-700 mt-1">-</div>
                     </div>
 
-                    <!-- SD & Variance Group -->
-                    <div class="stat-card bg-orange-50 p-4 rounded-xl shadow border border-orange-100 col-span-2 md:col-span-1">
-                        <h4 class="text-orange-800 text-xs font-bold uppercase mb-1">離散程度</h4>
-                        <div class="flex flex-col gap-2">
-                            <div>
-                                <span class="text-xs text-gray-500">標準差 (SD, σ):</span>
-                                <span id="valSD" class="font-bold text-orange-700 text-lg ml-1">-</span>
-                            </div>
-                            <div>
-                                <span class="text-xs text-gray-500">方差 (Variance, σ²):</span>
-                                <span id="valVar" class="font-bold text-orange-700 text-lg ml-1">-</span>
-                            </div>
+                    <!-- SD/Var Group -->
+                    <div class="stat-card bg-orange-50 p-4 rounded-xl shadow border border-orange-100 flex flex-col justify-center">
+                        <div class="flex justify-between items-baseline mb-1">
+                            <span class="text-xs text-orange-800 font-bold uppercase">SD(σ)</span>
+                            <span id="valSD" class="text-xl font-bold text-orange-700">-</span>
+                        </div>
+                        <div class="w-full h-px bg-orange-200 my-1"></div>
+                        <div class="flex justify-between items-baseline">
+                            <span class="text-xs text-orange-800 font-bold uppercase">Var(σ²)</span>
+                            <span id="valVar" class="text-xl font-bold text-orange-700">-</span>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Explanation Section -->
-        <div class="mt-8 bg-blue-50 border border-blue-100 rounded-xl p-6">
-            <h3 class="text-lg font-bold text-blue-900 mb-2">💡 觀察重點</h3>
-            <ul class="list-disc list-inside text-blue-800 space-y-1 text-sm">
-                <li><strong>利用鎖定功能</strong>：開啟「鎖定座標軸」，然後點擊「數據平移 (+5)」。你會發現所有點一起向右移動，就像一輛火車，車廂之間的距離（離散程度）完全沒有改變。</li>
-                <li><strong>四分位數間距 (IQR)</strong>：灰色線段代表中間 50% 數據的範圍 (Q1 到 Q3)。這段長度直觀地顯示了數據中間部分的集中程度。</li>
-            </ul>
+                <!-- Histogram Area -->
+                <div class="bg-white p-5 rounded-xl shadow-md">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">頻數分佈圖 (Histogram)</h3>
+                    <div class="relative h-48 md:h-56 w-full">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Explanation Section -->
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 md:p-6">
+                    <h3 class="text-lg font-bold text-blue-900 mb-3 flex items-center">
+                        💡 觀察重點
+                    </h3>
+                    <ul class="list-disc list-inside text-blue-800 space-y-2 text-sm md:text-base leading-relaxed">
+                        <li><strong>利用鎖定功能</strong>：開啟「鎖定座標軸」，然後點擊「數據平移 (+5)」。你會發現所有點一起向右移動，就像一輛火車，車廂之間的距離（離散程度）完全沒有改變。</li>
+                        <li><strong>四分位數間距 (IQR)</strong>：灰色線段代表中間 50% 數據的範圍 (Q1 到 Q3)。這段長度直觀地顯示了數據中間部分的集中程度。</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -397,18 +431,17 @@
             isAxisLocked = checkbox.checked;
 
             if (isAxisLocked) {
-                // Lock Logic
-                label.textContent = "已鎖定座標軸 (0-100)";
-                label.classList.add('text-blue-700', 'font-bold');
+                // Lock Logic (Fixed 0-100)
+                label.textContent = "已鎖定 (0-100)";
+                label.classList.add('text-blue-700');
                 resetBtn.classList.remove('hidden');
 
-                // Set fixed range 0-100 as requested
                 lockedMin = 0;
                 lockedMax = 100;
             } else {
                 // Unlock
                 label.textContent = "自動縮放";
-                label.classList.remove('text-blue-700', 'font-bold');
+                label.classList.remove('text-blue-700');
                 resetBtn.classList.add('hidden');
             }
             calculateAndRender();
@@ -471,20 +504,16 @@
             };
 
             // --- Draw Background Grid / Ticks ---
-            // Determine nice step size
             const rawStep = range / 10;
-            // Find magnitude of step (e.g., 0.1, 1, 10, 100)
             const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
-            // Normalize step to 1, 2, or 5 times magnitude
             let stepSize;
             if (rawStep / magnitude < 2) stepSize = magnitude;
             else if (rawStep / magnitude < 5) stepSize = 2 * magnitude;
             else stepSize = 5 * magnitude;
             
-            // Draw grid lines
-            ctx.strokeStyle = "#e5e7eb"; // Light gray grid
+            ctx.strokeStyle = "#e5e7eb"; 
             ctx.lineWidth = 1;
-            ctx.font = "10px sans-serif";
+            ctx.font = "12px sans-serif"; // Larger font for tablet
             ctx.fillStyle = "#9ca3af";
             ctx.textAlign = "center";
 
@@ -493,45 +522,37 @@
                 const x = getX(v);
                 if (x < padding || x > w - padding) continue;
                 
-                // Vertical grid line (optional, maybe just ticks)
                 ctx.beginPath();
                 ctx.moveTo(x, 20);
                 ctx.lineTo(x, h - bottomMargin);
                 ctx.stroke();
 
-                // Axis Tick text
-                ctx.fillText(Math.round(v * 100) / 100, x, h - bottomMargin + 15);
+                ctx.fillText(Math.round(v * 100) / 100, x, h - bottomMargin + 20);
             }
-
-            // [REMOVED] 1. Draw SD Range
-            // [REMOVED] SD Area drawing code block deleted.
 
             // 2. Draw IQR Line
             const q1X = getX(stats.q1);
             const q3X = getX(stats.q3);
-            const iqrY = h - bottomMargin + 25; // Moved down slightly
+            const iqrY = h - bottomMargin + 30; // More space for touch readability
             
-            // Only draw if within reasonable bounds (clipping simplified)
             if (q3X > padding && q1X < w - padding) {
                 ctx.beginPath();
                 ctx.strokeStyle = "#9ca3af"; 
-                ctx.lineWidth = 3;
-                // Simple clamp for drawing
+                ctx.lineWidth = 4; // Thicker line
                 ctx.moveTo(Math.max(padding, q1X), iqrY);
                 ctx.lineTo(Math.min(w-padding, q3X), iqrY);
                 ctx.stroke();
                 
                 // Caps
                 if (q1X >= padding && q1X <= w-padding) {
-                     ctx.beginPath(); ctx.moveTo(q1X, iqrY-4); ctx.lineTo(q1X, iqrY+4); ctx.stroke();
+                     ctx.beginPath(); ctx.moveTo(q1X, iqrY-6); ctx.lineTo(q1X, iqrY+6); ctx.stroke();
                 }
                 if (q3X >= padding && q3X <= w-padding) {
-                     ctx.beginPath(); ctx.moveTo(q3X, iqrY-4); ctx.lineTo(q3X, iqrY+4); ctx.stroke();
+                     ctx.beginPath(); ctx.moveTo(q3X, iqrY-6); ctx.lineTo(q3X, iqrY+6); ctx.stroke();
                 }
             }
 
-
-            // 3. Draw Axis Line (Main baseline)
+            // 3. Draw Axis Line
             const axisY = h - bottomMargin;
             ctx.beginPath();
             ctx.strokeStyle = "#374151"; 
@@ -540,52 +561,44 @@
             ctx.lineTo(w - padding, axisY);
             ctx.stroke();
 
-            // [REMOVED] 4. Draw Mean Line
-            // [REMOVED] Mean Line drawing code block deleted.
-
             // 5. Draw Median Line
             const medianX = getX(stats.median);
             if (medianX >= padding && medianX <= w - padding) {
                 ctx.beginPath();
                 ctx.strokeStyle = "#10b981"; 
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 3; // Thicker line
                 ctx.moveTo(medianX, 20);
                 ctx.lineTo(medianX, axisY + 5);
                 ctx.stroke();
                 
                 ctx.fillStyle = "#10b981";
-                ctx.font = "bold 12px sans-serif";
+                ctx.font = "bold 14px sans-serif"; // Larger font
                 ctx.fillText("M", medianX, 15);
             }
 
-            // 6. Draw Dots (Data Points)
-            const dotRadius = 5;
+            // 6. Draw Dots
+            const dotRadius = 6; // Larger dots
             const counts = {}; 
             
-            ctx.fillStyle = "rgba(59, 130, 246, 0.8)";
+            ctx.fillStyle = "rgba(59, 130, 246, 0.9)";
             
-            // Render Dots
             nums.forEach(num => {
                 const x = getX(num);
-                // Check if visible
-                if (x < padding - dotRadius || x > w - padding + dotRadius) {
-                    return; 
-                }
+                if (x < padding - dotRadius || x > w - padding + dotRadius) return;
 
                 const stackIndex = counts[num] || 0;
                 counts[num] = stackIndex + 1;
                 
-                const y = axisY - 10 - (stackIndex * (dotRadius * 2 + 2)); 
+                const y = axisY - 12 - (stackIndex * (dotRadius * 2 + 4)); 
                 
                 ctx.beginPath();
                 ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
                 ctx.fill();
             });
             
-            // Out of bounds warning
             if (stats.min < minVal || stats.max > maxVal) {
-                ctx.fillStyle = "red";
-                ctx.font = "bold 12px sans-serif";
+                ctx.fillStyle = "#ef4444";
+                ctx.font = "bold 14px sans-serif";
                 ctx.textAlign = "right";
                 ctx.fillText("⚠️ 部分數據在視圖外", w - padding, 30);
             }
@@ -615,8 +628,8 @@
         }
 
         function flashInput() {
-            inputEl.classList.add('bg-yellow-100');
-            setTimeout(() => inputEl.classList.remove('bg-yellow-100'), 300);
+            inputEl.classList.add('bg-blue-50');
+            setTimeout(() => inputEl.classList.remove('bg-blue-50'), 300);
         }
     </script>
 </body>
